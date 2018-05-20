@@ -42,7 +42,7 @@ public class Internet {
 	/// Monitor Internet and run code in SCNetworkReachabilitySetCallback when connection changes
 	func monitorInternet() {
 		var context = SCNetworkReachabilityContext(version: 0, info: nil, retain: nil, release: nil, copyDescription: nil)
-		let reachable = SCNetworkReachabilityCreateWithName(nil, "apple.com")!
+		guard let reachable = SCNetworkReachabilityCreateWithName(nil, "apple.com") else { return }
 		
 		SCNetworkReachabilitySetCallback(reachable, { ( _, _, _) in
 			print("Internet status changed")
