@@ -51,7 +51,6 @@ public class Internet {
 		SCNetworkReachabilityScheduleWithRunLoop(reachable, CFRunLoopGetMain(), RunLoopMode.commonModes as CFString)
 	}
 	
-	/// Check Internet status
 	private func checkConnection() -> InternetStatus {
 		if let flags = getFlags() {	return InternetStatus(InternetFlags: flags) }
 		return .offline
