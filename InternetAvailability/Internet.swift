@@ -1,92 +1,24 @@
-import Foundation
-import SystemConfiguration
+import Network
 
 
-enum InternetStatus {
-	case offline, wwan, wifi
-	
-	init(InternetFlags flags: SCNetworkReachabilityFlags) {
-		let connectionRequired = flags.contains(.connectionRequired)
-		let isReachable = flags.contains(.reachable)
-		let isWWAN = flags.contains(.isWWAN)
-		
-		if !connectionRequired && isReachable {
-			if isWWAN { self = .wwan } else { self = .wifi }
-		} else {
-			self = .offline
-		}
-	}
-	
+struct Internet {
+ 
+ private static let monitor = NWPathMonitor()
+ 
+ static var available = false
+ static var expensive = false
+ 
+ /// Monitors internet connectivity changes. Updates with every change in connectivity.
+ /// Updates variables for availability and if it's expensive (cellular).
+ static func startMonitoring() {
+  guard monitor.pathUpdateHandler == nil else { return }
+  
+  monitor.pathUpdateHandler = { update in
+   Internet.available = update.status == .satisfied ? true : false
+   Internet.expensive = update.isExpensive ? true : false
+  }
+  
+  monitor.start(queue: DispatchQueue(label: "InternetMonitor"))
+ }
+ 
 }
-
-public class Internet {
-	
-	/// Checks Internet connection status
-	static var available: Bool {
-		switch Internet().checkConnection() {
-		case .offline:	return false
-		case .wwan:		return true
-		case .wifi: 	return true
-		}
-	}
-	
-	/// Checks Internet connection type: .offline .wwan .wifi
-	static var connectedBy: InternetStatus {
-		switch Internet().checkConnection() {
-		case .offline:	return .offline
-		case .wwan:		return .wwan
-		case .wifi: 	return .wifi
-		}
-	}
-	
-	/// Monitor Internet and run code in SCNetworkReachabilitySetCallback when connection changes
-	func monitorInternet() {
-		var context = SCNetworkReachabilityContext(version: 0, info: nil, retain: nil, release: nil, copyDescription: nil)
-		guard let reachable = SCNetworkReachabilityCreateWithName(nil, "apple.com") else { return }
-		
-		SCNetworkReachabilitySetCallback(reachable, { ( _, _, _) in
-			print("Internet status changed")
-		}, &context)
-		
-		SCNetworkReachabilityScheduleWithRunLoop(reachable, CFRunLoopGetMain(), RunLoopMode.commonModes as CFString)
-	}
-	
-	private func checkConnection() -> InternetStatus {
-		if let flags = getFlags() {	return InternetStatus(InternetFlags: flags) }
-		return .offline
-	}
-	
-	private func getFlags() -> SCNetworkReachabilityFlags? {
-		guard let reachability = ipv4() ?? ipv6() else {	return nil	}
-		var flags = SCNetworkReachabilityFlags()
-		if !SCNetworkReachabilityGetFlags(reachability, &flags) { return nil }
-		return flags
-	}
-	
-	private func ipv6() -> SCNetworkReachability? {
-		var zeroAddress = sockaddr_in6()
-		zeroAddress.sin6_len = UInt8(MemoryLayout<sockaddr_in>.size)
-		zeroAddress.sin6_family = sa_family_t(AF_INET6)
-		
-		return withUnsafePointer(to: &zeroAddress, {
-			$0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-				SCNetworkReachabilityCreateWithAddress(nil, $0)
-			}
-		})
-	}
-	
-	private func ipv4() -> SCNetworkReachability? {
-		var zeroAddress = sockaddr_in()
-		zeroAddress.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-		zeroAddress.sin_family = sa_family_t(AF_INET)
-		
-		return withUnsafePointer(to: &zeroAddress, {
-			$0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-				SCNetworkReachabilityCreateWithAddress(nil, $0)
-			}
-		})
-	}
-	
-	
-}
-
