@@ -7,14 +7,14 @@ class ViewController: UIViewController {
 
 	override func viewDidAppear(_ animated: Bool) {
 		
-		if Internet.available {
+		// monitor changes in the Internet
+		Internet().startMonitoring()
+		
+	   	if Internet.available {
 			print("Internet available")
 		} else {
 			print("Internet unavailable")
 		}
-		
-		// monitor changes in the Internet
-		Internet().monitorInternet()
 		
 	}
 
